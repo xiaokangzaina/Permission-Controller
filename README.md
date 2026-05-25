@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/License-AGPLv3-blue)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-green)
 ![AstrBot](https://img.shields.io/badge/AstrBot-Plugin-purple)
-![Version](https://img.shields.io/badge/Version-v1.7.0-orange)
+![Version](https://img.shields.io/badge/Version-v1.7.1-orange)
 ![Author](https://img.shields.io/badge/Author-local-lightgrey)
 
 ---
@@ -135,6 +135,8 @@
 ---
 
 ## 更新记录
+
+v1.7.1：修复关闭“管理员绕过唤醒词”后旧补丁仍在内存中生效的问题，开关会按当前配置实时判断。
 
 v1.7.0：新增“管理员绕过唤醒词”开关，可让平台管理员无需唤醒词或 @ 机器人即可唤醒。
 
