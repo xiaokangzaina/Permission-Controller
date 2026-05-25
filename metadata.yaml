@@ -2,6 +2,6 @@ name: astrbot_plugin_group_user_whitelist
 display_name: 单独配置用户调用权限列表
 desc: 按 用户QQ-群号 组合限制谁能调用模型/机器人，支持群聊放行规则、群聊禁止调用黑名单、私聊白名单，并自动放行平台管理员
 help: simple_rules 填写 用户QQ-群号；allowed_groups 填写整体放行的群号并自动同步到平台白名单；enable_group_blacklist 控制群聊黑名单，group_blacklist 填写被禁止在群聊调用的 QQ 号；private_chat_users 用于私聊白名单。
-version: v1.5.5
+version: v1.5.6
 author: local
 repo: "https://github.com/xiaokangzaina/Permission-Controller"

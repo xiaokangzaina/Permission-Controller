@@ -1,4 +1,4 @@
-![单独配置用户调用权限列表](https://raw.githubusercontent.com/xiaokangzaina/Permission-Controller/main/logo.png)
+![单独配置用户调用权限列表](https://raw.githubusercontent.com/xiaokangzaina/Permission-Controller/main/plugin-avatar-v1.5.6.png)
 
 # 单独配置用户调用权限列表
 
@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/License-AGPLv3-blue)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-green)
 ![AstrBot](https://img.shields.io/badge/AstrBot-Plugin-purple)
-![Version](https://img.shields.io/badge/Version-v1.5.5-orange)
+![Version](https://img.shields.io/badge/Version-v1.5.6-orange)
 ![Author](https://img.shields.io/badge/Author-local-lightgrey)
 
 ---
@@ -134,6 +134,8 @@
 ---
 
 ## 更新记录
+
+v1.5.6：README 顶部图片改用新文件名，绕开 GitHub 图片缓存；插件头像仍使用最新 logo。
 
 v1.5.5：更换插件头像 logo，并同步更新 README 顶部展示图片。
 
