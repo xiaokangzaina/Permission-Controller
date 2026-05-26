@@ -38,7 +38,7 @@ class _AstrBotStopPropagationLogFilter(logging.Filter):
     "astrbot_plugin_permission_controller",
     "local",
     "按 用户QQ-群号/群号列表 限制谁能调用模型/机器人",
-    "1.7.3",
+    "1.7.4",
 )
 class GroupUserWhitelistPlugin(Star):
     """AstrBot 权限控制器主类。
@@ -71,7 +71,7 @@ class GroupUserWhitelistPlugin(Star):
             self._cfg_get("private_chat_users", [])
         )
         self.allowed_groups = self._normalize_ids(self._cfg_get("allowed_groups", []))
-        self._sync_allowed_groups_to_platform_whitelist()
+        self._sync_plugin_allowlist_to_platform_whitelist()
         self._install_stop_propagation_log_filter()
         self._install_admin_wake_bypass_patch()
 
@@ -262,14 +262,16 @@ class GroupUserWhitelistPlugin(Star):
             pass
         return admin_ids
 
-    def _sync_allowed_groups_to_platform_whitelist(self) -> None:
-        """把插件群聊放行列表同步到 AstrBot 平台 ID 白名单。
+    def _sync_plugin_allowlist_to_platform_whitelist(self) -> None:
+        """把插件放行对象同步到 AstrBot 平台 ID 白名单。
 
-        目的：即使用户没有在 AstrBot 普通配置 -> 平台配置 -> 白名单 ID 列表
-        手动填写群号，只要在本插件的“放行权限QQ群聊列表”中填写群号，
-        平台核心白名单也能放行这些群聊消息，让后续插件规则有机会执行。
+        AstrBot 核心平台白名单检查早于普通插件 handler。若只在本插件
+        private_chat_users 中填写私聊 QQ，而没有同步到平台 id_whitelist，
+        私聊消息会在插件私聊白名单逻辑执行前被核心白名单拦截。
+        因此这里同时同步群聊放行群号和私聊白名单 QQ。
         """
-        if not self.allowed_groups:
+        plugin_allowlist = self.allowed_groups | self.private_chat_users
+        if not plugin_allowlist:
             return
 
         try:
@@ -281,13 +283,13 @@ class GroupUserWhitelistPlugin(Star):
         try:
             if hasattr(global_config, "get"):
                 current = self._normalize_ids(global_config.get("id_whitelist", []))
-                merged = sorted(current | self.allowed_groups)
+                merged = sorted(current | plugin_allowlist)
                 if hasattr(global_config, "set"):
                     global_config.set("id_whitelist", merged)
                 elif isinstance(global_config, dict):
                     global_config["id_whitelist"] = merged
         except Exception as exc:
-            logger.debug(f"同步群聊放行列表到运行时平台白名单失败: {exc}")
+            logger.debug(f"同步插件放行列表到运行时平台白名单失败: {exc}")
 
         # 2. 同步写入 data/cmd_config.json，便于重启后继续生效。
         try:
@@ -299,7 +301,7 @@ class GroupUserWhitelistPlugin(Star):
             data = json.loads(raw) if raw.strip() else {}
             platform_settings = data.setdefault("platform_settings", data)
             current = self._normalize_ids(platform_settings.get("id_whitelist", []))
-            merged = sorted(current | self.allowed_groups)
+            merged = sorted(current | plugin_allowlist)
             if merged != list(platform_settings.get("id_whitelist", [])):
                 platform_settings["id_whitelist"] = merged
                 cmd_config_path.write_text(
@@ -307,7 +309,7 @@ class GroupUserWhitelistPlugin(Star):
                     encoding="utf-8",
                 )
         except Exception as exc:
-            logger.debug(f"同步群聊放行列表到 cmd_config.json 失败: {exc}")
+            logger.debug(f"同步插件放行列表到 cmd_config.json 失败: {exc}")
 
     def _load_rules(self):
         """解析 用户QQ-群号 规则，生成 group_id -> allowed_user_ids 映射。"""

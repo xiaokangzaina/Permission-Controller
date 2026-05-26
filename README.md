@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/License-AGPLv3-blue)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-green)
 ![AstrBot](https://img.shields.io/badge/AstrBot-Plugin-purple)
-![Version](https://img.shields.io/badge/Version-v1.7.3-orange)
+![Version](https://img.shields.io/badge/Version-v1.7.4-orange)
 ![Author](https://img.shields.io/badge/Author-local-lightgrey)
 
 ---
@@ -135,6 +135,8 @@
 ---
 
 ## 更新记录
+
+v1.7.4：修复私聊白名单用户不生效；现在会把 private_chat_users 同步到 AstrBot 平台 id_whitelist，避免核心白名单提前拦截。
 
 v1.7.3：将 AstrBot 适配要求修正为 >=4.0.0,<5；核心事件、私聊判断、停止传播和唤醒检查 API 在 v4.0.0 已存在。
 
