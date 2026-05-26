@@ -1,12 +1,19 @@
+"""AstrBot 权限控制器插件。
+
+本插件负责在 AstrBot 消息事件进入模型或其他插件前，按私聊白名单、
+群聊整体放行列表、用户-群号组合规则和群聊黑名单进行权限拦截。
+代码中的注释重点说明拦截顺序、兼容逻辑和对 AstrBot 运行时配置的最小改动。
+"""
+
 import json
 import logging
 from pathlib import Path
 from sys import maxsize
 
-logger = logging.getLogger(__name__)
-
-from astrbot.api.event import filter, AstrMessageEvent
+from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, register
+
+logger = logging.getLogger(__name__)
 
 
 class _AstrBotStopPropagationLogFilter(logging.Filter):
@@ -18,6 +25,7 @@ class _AstrBotStopPropagationLogFilter(logging.Filter):
     )
 
     def filter(self, record: logging.LogRecord) -> bool:
+        """返回 False 时丢弃命中的冗余日志记录。"""
         try:
             msg = record.getMessage()
         except Exception:
@@ -33,13 +41,20 @@ class _AstrBotStopPropagationLogFilter(logging.Filter):
     "1.7.1",
 )
 class GroupUserWhitelistPlugin(Star):
-    """群内用户级白名单。"""
+    """AstrBot 权限控制器主类。
+
+    拦截策略：
+    1. 群聊先检查黑名单，再检查管理员、群整体放行和用户-群号组合。
+    2. 私聊只允许配置在 private_chat_users 中的普通用户；管理员可按配置绕过。
+    3. allowed_groups 会同步到 AstrBot 平台白名单，避免核心层提前拦截群消息。
+    """
 
     _log_filter_installed = False
     _log_filter = _AstrBotStopPropagationLogFilter()
     _admin_wake_bypass_patch_installed = False
 
     def __init__(self, context: Context, config=None):
+        """初始化插件配置、规则缓存和运行时兼容补丁。"""
         super().__init__(context)
         self.context = context
         self.config = config or {}
@@ -51,15 +66,11 @@ class GroupUserWhitelistPlugin(Star):
             "enable_group_blacklist", True
         )
         self.admin_ids = self._load_admin_ids()
-        self.group_blacklist = self._normalize_ids(
-            self._cfg_get("group_blacklist", [])
-        )
+        self.group_blacklist = self._normalize_ids(self._cfg_get("group_blacklist", []))
         self.private_chat_users = self._normalize_ids(
             self._cfg_get("private_chat_users", [])
         )
-        self.allowed_groups = self._normalize_ids(
-            self._cfg_get("allowed_groups", [])
-        )
+        self.allowed_groups = self._normalize_ids(self._cfg_get("allowed_groups", []))
         self._sync_allowed_groups_to_platform_whitelist()
         self._install_stop_propagation_log_filter()
         self._install_admin_wake_bypass_patch()
@@ -98,6 +109,7 @@ class GroupUserWhitelistPlugin(Star):
         cls._log_filter_installed = True
 
     def _cfg_get(self, key, default=None):
+        """安全读取 AstrBotConfig/dict 配置，读取失败时返回默认值。"""
         try:
             if hasattr(self.config, "get"):
                 return self.config.get(key, default)
@@ -106,12 +118,19 @@ class GroupUserWhitelistPlugin(Star):
         return default
 
     def _get_bool_config(self, key, default=False):
+        """兼容布尔值和中文/英文字符串形式的开关配置。"""
         value = self._cfg_get(key, default)
         if isinstance(value, bool):
             return value
         if isinstance(value, str):
             return value.strip().lower() in (
-                "1", "true", "yes", "on", "开启", "开", "启用"
+                "1",
+                "true",
+                "yes",
+                "on",
+                "开启",
+                "开",
+                "启用",
             )
         return bool(value)
 
@@ -133,8 +152,13 @@ class GroupUserWhitelistPlugin(Star):
         internal_prefix = "__admin_wake_bypass__ "
 
         def _runtime_enabled() -> bool:
+            """运行时读取开关，确保后台改配置后无需重启即可生效。"""
             try:
-                cfg_path = Path(__file__).resolve().parents[2] / "config" / "astrbot_plugin_permission_controller_config.json"
+                cfg_path = (
+                    Path(__file__).resolve().parents[2]
+                    / "config"
+                    / "astrbot_plugin_permission_controller_config.json"
+                )
                 if cfg_path.exists():
                     raw = cfg_path.read_text(encoding="utf-8-sig")
                     data = json.loads(raw) if raw.strip() else {}
@@ -142,28 +166,43 @@ class GroupUserWhitelistPlugin(Star):
                     if isinstance(value, bool):
                         return value
                     if isinstance(value, str):
-                        return value.strip().lower() in ("1", "true", "yes", "on", "开启", "开", "启用")
+                        return value.strip().lower() in (
+                            "1",
+                            "true",
+                            "yes",
+                            "on",
+                            "开启",
+                            "开",
+                            "启用",
+                        )
                     return bool(value)
             except Exception as exc:
                 logger.debug(f"读取管理员绕过唤醒词配置失败: {exc}")
             return False
 
         if getattr(WakingCheckStage, "_permission_controller_patch_installed", False):
-            WakingCheckStage._permission_controller_runtime_enabled = staticmethod(_runtime_enabled)
+            WakingCheckStage._permission_controller_runtime_enabled = staticmethod(
+                _runtime_enabled
+            )
             return
 
         original_process = WakingCheckStage.process
         WakingCheckStage._permission_controller_original_process = original_process
-        WakingCheckStage._permission_controller_runtime_enabled = staticmethod(_runtime_enabled)
+        WakingCheckStage._permission_controller_runtime_enabled = staticmethod(
+            _runtime_enabled
+        )
 
         async def patched_process(self, event):
+            """在管理员消息前临时插入内部唤醒词，再交回原始唤醒流程。"""
             added_prefix = False
             original_message_str = None
             try:
                 wake_prefixes = self.ctx.astrbot_config.setdefault("wake_prefix", [])
                 if internal_prefix in wake_prefixes:
                     # 防止内部前缀残留在全局唤醒词里，导致用户手动输入该前缀也能触发。
-                    wake_prefixes[:] = [x for x in wake_prefixes if x != internal_prefix]
+                    wake_prefixes[:] = [
+                        x for x in wake_prefixes if x != internal_prefix
+                    ]
 
                 enabled = WakingCheckStage._permission_controller_runtime_enabled()
                 if enabled:
@@ -178,7 +217,9 @@ class GroupUserWhitelistPlugin(Star):
                         wake_prefixes.append(internal_prefix)
                         if not str(event.message_str or "").startswith(internal_prefix):
                             original_message_str = event.message_str
-                            event.message_str = internal_prefix + str(event.message_str or "")
+                            event.message_str = internal_prefix + str(
+                                event.message_str or ""
+                            )
                             added_prefix = True
             except Exception as exc:
                 logger.debug(f"管理员绕过唤醒词处理失败，回退默认唤醒检查: {exc}")
@@ -199,6 +240,7 @@ class GroupUserWhitelistPlugin(Star):
 
     @staticmethod
     def _normalize_ids(value):
+        """把配置中的 ID 列表统一转换为去空白字符串集合。"""
         if value is None:
             return set()
         if isinstance(value, (str, int)):
@@ -208,6 +250,7 @@ class GroupUserWhitelistPlugin(Star):
         return {str(item).strip() for item in value if str(item).strip()}
 
     def _load_admin_ids(self):
+        """从 AstrBot 全局配置读取管理员 ID，用于绕过权限限制。"""
         admin_ids = set()
         try:
             global_config = self.context.get_config()
@@ -267,6 +310,7 @@ class GroupUserWhitelistPlugin(Star):
             logger.debug(f"同步群聊放行列表到 cmd_config.json 失败: {exc}")
 
     def _load_rules(self):
+        """解析 用户QQ-群号 规则，生成 group_id -> allowed_user_ids 映射。"""
         raw_rules = self._cfg_get("simple_rules", [])
         if not isinstance(raw_rules, list):
             raw_rules = []
@@ -288,6 +332,7 @@ class GroupUserWhitelistPlugin(Star):
         return rules
 
     def _is_admin(self, sender_id: str) -> bool:
+        """判断发送者是否是 AstrBot 全局管理员。"""
         sender_id = str(sender_id).strip()
         return bool(sender_id and sender_id in self.admin_ids)
 
@@ -348,9 +393,11 @@ class GroupUserWhitelistPlugin(Star):
 
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE, priority=maxsize)
     async def check_group_user_whitelist(self, event: AstrMessageEvent):
+        """群聊权限入口：黑名单优先，其次按管理员和放行规则判断。"""
         group_id = str(event.get_group_id() or "").strip()
         sender_id = str(event.get_sender_id() or "").strip()
 
+        # 黑名单优先级最高；但允许平台管理员按 admin_bypass 配置绕过。
         if self.enable_group_blacklist and sender_id in self.group_blacklist:
             if self.admin_bypass and self._is_admin(sender_id):
                 return
@@ -393,6 +440,7 @@ class GroupUserWhitelistPlugin(Star):
         if not self.private_chat_users:
             return
 
+        # 不同适配器暴露的私聊 ID 字段不同，因此收集多个候选值做交集匹配。
         candidates = self._private_sender_candidates(event)
         if not candidates:
             return
