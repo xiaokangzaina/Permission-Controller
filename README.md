@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/License-AGPLv3-blue)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-green)
 ![AstrBot](https://img.shields.io/badge/AstrBot-Plugin-purple)
-![Version](https://img.shields.io/badge/Version-v1.7.5-orange)
+![Version](https://img.shields.io/badge/Version-v1.7.6-orange)
 ![Author](https://img.shields.io/badge/Author-local-lightgrey)
 
 ---
@@ -135,6 +135,8 @@
 ---
 
 ## 更新记录
+
+v1.7.6：平台白名单改为双向同步；从插件 private_chat_users/allowed_groups 删除的 ID，会从平台 id_whitelist 中同步移除，同时保留非本插件同步的手动平台白名单。
 
 v1.7.5：进一步修复私聊白名单；给 AstrBot 核心白名单阶段加入运行时兼容补丁，使其识别本插件 private_chat_users，避免只匹配 unified_msg_origin 导致纯 QQ 白名单无效。
 

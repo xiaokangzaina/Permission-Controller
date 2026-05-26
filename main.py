@@ -39,7 +39,7 @@ class _AstrBotStopPropagationLogFilter(logging.Filter):
     "astrbot_plugin_permission_controller",
     "local",
     "按 用户QQ-群号/群号列表 限制谁能调用模型/机器人",
-    "1.7.5",
+    "1.7.6",
 )
 class GroupUserWhitelistPlugin(Star):
     """AstrBot 权限控制器主类。
@@ -370,17 +370,73 @@ class GroupUserWhitelistPlugin(Star):
             pass
         return admin_ids
 
-    def _sync_plugin_allowlist_to_platform_whitelist(self) -> None:
-        """把插件放行对象同步到 AstrBot 平台 ID 白名单。
+    def _plugin_synced_ids_path(self) -> Path:
+        """记录本插件已同步到平台白名单的 ID，避免误删手动平台白名单。"""
+        return (
+            Path(__file__).resolve().parents[2]
+            / "config"
+            / "astrbot_plugin_permission_controller_synced_ids.json"
+        )
 
-        AstrBot 核心平台白名单检查早于普通插件 handler。若只在本插件
-        private_chat_users 中填写私聊 QQ，而没有同步到平台 id_whitelist，
-        私聊消息会在插件私聊白名单逻辑执行前被核心白名单拦截。
-        因此这里同时同步群聊放行群号和私聊白名单 QQ。
+    def _load_plugin_synced_ids(self) -> set[str]:
+        """读取历史同步记录。"""
+        try:
+            path = self._plugin_synced_ids_path()
+            if not path.exists():
+                return set()
+            data = json.loads(path.read_text(encoding="utf-8-sig") or "{}")
+            ids = data.get("synced_ids", [])
+            if isinstance(ids, (str, int)):
+                ids = [ids]
+            if not isinstance(ids, list):
+                return set()
+            return self._normalize_ids(ids)
+        except Exception as exc:
+            logger.debug(f"读取插件同步白名单记录失败: {exc}")
+            return set()
+
+    def _save_plugin_synced_ids(self, synced_ids: set[str]) -> None:
+        """保存本插件当前负责同步的 ID。"""
+        try:
+            path = self._plugin_synced_ids_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps(
+                    {
+                        "synced_ids": sorted(synced_ids),
+                        "note": "IDs managed by astrbot_plugin_permission_controller. Manual platform whitelist entries are not recorded here.",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        except Exception as exc:
+            logger.debug(f"保存插件同步白名单记录失败: {exc}")
+
+    def _merge_platform_whitelist(
+        self, current: set[str], plugin_allowlist: set[str]
+    ) -> list[str]:
+        """合并平台白名单。
+
+        规则：
+        - 插件当前配置中的 ID 必须存在于平台白名单；
+        - 插件历史同步过但现在已从插件配置删除的 ID，从平台白名单移除；
+        - 不在历史同步记录中的平台 ID 视为用户手动维护，保留不动。
+        """
+        previous_synced = self._load_plugin_synced_ids()
+        manual_or_external = current - previous_synced
+        return sorted(manual_or_external | plugin_allowlist)
+
+    def _sync_plugin_allowlist_to_platform_whitelist(self) -> None:
+        """把插件放行对象双向同步到 AstrBot 平台 ID 白名单。
+
+        AstrBot 核心平台白名单检查早于普通插件 handler。这里同步
+        private_chat_users 和 allowed_groups 到平台 id_whitelist。
+        删除插件配置中的 ID 时，也会从平台白名单移除；但只移除本插件
+        历史同步过的 ID，避免误删用户手动添加的平台白名单。
         """
         plugin_allowlist = self.allowed_groups | self.private_chat_users
-        if not plugin_allowlist:
-            return
 
         try:
             global_config = self.context.get_config()
@@ -391,7 +447,7 @@ class GroupUserWhitelistPlugin(Star):
         try:
             if hasattr(global_config, "get"):
                 current = self._normalize_ids(global_config.get("id_whitelist", []))
-                merged = sorted(current | plugin_allowlist)
+                merged = self._merge_platform_whitelist(current, plugin_allowlist)
                 if hasattr(global_config, "set"):
                     global_config.set("id_whitelist", merged)
                 elif isinstance(global_config, dict):
@@ -403,21 +459,24 @@ class GroupUserWhitelistPlugin(Star):
         try:
             data_dir = Path(__file__).resolve().parents[2]
             cmd_config_path = data_dir / "cmd_config.json"
-            if not cmd_config_path.exists():
-                return
-            raw = cmd_config_path.read_text(encoding="utf-8-sig")
-            data = json.loads(raw) if raw.strip() else {}
-            platform_settings = data.setdefault("platform_settings", data)
-            current = self._normalize_ids(platform_settings.get("id_whitelist", []))
-            merged = sorted(current | plugin_allowlist)
-            if merged != list(platform_settings.get("id_whitelist", [])):
-                platform_settings["id_whitelist"] = merged
-                cmd_config_path.write_text(
-                    json.dumps(data, ensure_ascii=False, indent=2),
-                    encoding="utf-8",
-                )
+            if cmd_config_path.exists():
+                raw = cmd_config_path.read_text(encoding="utf-8-sig")
+                data = json.loads(raw) if raw.strip() else {}
+                platform_settings = data.setdefault("platform_settings", data)
+                current = self._normalize_ids(platform_settings.get("id_whitelist", []))
+                merged = self._merge_platform_whitelist(current, plugin_allowlist)
+                if merged != list(platform_settings.get("id_whitelist", [])):
+                    platform_settings["id_whitelist"] = merged
+                    cmd_config_path.write_text(
+                        json.dumps(data, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
         except Exception as exc:
             logger.debug(f"同步插件放行列表到 cmd_config.json 失败: {exc}")
+
+        # 3. 最后更新同步记录。即使插件列表为空，也要记录为空，
+        #    这样下一次能确认旧同步项已被插件释放。
+        self._save_plugin_synced_ids(plugin_allowlist)
 
     def _load_rules(self):
         """解析 用户QQ-群号 规则，生成 group_id -> allowed_user_ids 映射。"""
