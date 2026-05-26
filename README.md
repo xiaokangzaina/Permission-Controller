@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/License-AGPLv3-blue)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-green)
 ![AstrBot](https://img.shields.io/badge/AstrBot-Plugin-purple)
-![Version](https://img.shields.io/badge/Version-v1.7.2-orange)
+![Version](https://img.shields.io/badge/Version-v1.7.3-orange)
 ![Author](https://img.shields.io/badge/Author-local-lightgrey)
 
 ---

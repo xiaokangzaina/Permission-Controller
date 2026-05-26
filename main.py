@@ -38,7 +38,7 @@ class _AstrBotStopPropagationLogFilter(logging.Filter):
     "astrbot_plugin_permission_controller",
     "local",
     "按 用户QQ-群号/群号列表 限制谁能调用模型/机器人",
-    "1.7.2",
+    "1.7.3",
 )
 class GroupUserWhitelistPlugin(Star):
     """AstrBot 权限控制器主类。

@@ -2,8 +2,8 @@ name: astrbot_plugin_permission_controller
 display_name: 权限控制器
 desc: 按用户 QQ、群号、私聊白名单和群聊黑名单控制 AstrBot 机器人调用权限，支持群聊整体放行并同步平台白名单。
 help: simple_rules 填写 用户QQ-群号；allowed_groups 填写整体放行的群号并自动同步到平台白名单；enable_group_blacklist 控制群聊黑名单，group_blacklist 填写被禁止在群聊调用的 QQ 号；private_chat_users 用于私聊白名单。
-version: v1.7.2
+version: v1.7.3
 author: xiaokangzaina
 repo: "https://github.com/xiaokangzaina/astrbot_plugin_permission_controller"
-astrbot_version: ">4.16"
+astrbot_version: ">=4.0.0,<5"
 support_platforms: [qq_official, aiocqhttp]
