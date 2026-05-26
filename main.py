@@ -12,6 +12,7 @@ from sys import maxsize
 
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, register
+from astrbot.core.platform.message_type import MessageType
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ class _AstrBotStopPropagationLogFilter(logging.Filter):
     "astrbot_plugin_permission_controller",
     "local",
     "按 用户QQ-群号/群号列表 限制谁能调用模型/机器人",
-    "1.7.4",
+    "1.7.5",
 )
 class GroupUserWhitelistPlugin(Star):
     """AstrBot 权限控制器主类。
@@ -52,6 +53,7 @@ class GroupUserWhitelistPlugin(Star):
     _log_filter_installed = False
     _log_filter = _AstrBotStopPropagationLogFilter()
     _admin_wake_bypass_patch_installed = False
+    _whitelist_stage_patch_installed = False
 
     def __init__(self, context: Context, config=None):
         """初始化插件配置、规则缓存和运行时兼容补丁。"""
@@ -74,6 +76,7 @@ class GroupUserWhitelistPlugin(Star):
         self._sync_plugin_allowlist_to_platform_whitelist()
         self._install_stop_propagation_log_filter()
         self._install_admin_wake_bypass_patch()
+        self._install_private_whitelist_stage_patch()
 
     @classmethod
     def _install_stop_propagation_log_filter(cls):
@@ -133,6 +136,111 @@ class GroupUserWhitelistPlugin(Star):
                 "启用",
             )
         return bool(value)
+
+    @classmethod
+    def _load_runtime_private_chat_users(cls) -> set[str]:
+        """运行时读取私聊白名单，供核心白名单阶段补丁使用。"""
+        try:
+            cfg_path = (
+                Path(__file__).resolve().parents[2]
+                / "config"
+                / "astrbot_plugin_permission_controller_config.json"
+            )
+            if not cfg_path.exists():
+                return set()
+            data = json.loads(cfg_path.read_text(encoding="utf-8-sig") or "{}")
+            users = data.get("private_chat_users", [])
+            if isinstance(users, (str, int)):
+                users = [users]
+            if not isinstance(users, list):
+                return set()
+            return {str(item).strip() for item in users if str(item).strip()}
+        except Exception as exc:
+            logger.debug(f"读取私聊白名单运行时配置失败: {exc}")
+            return set()
+
+    @classmethod
+    def _install_private_whitelist_stage_patch(cls):
+        """让核心 WhitelistCheckStage 识别本插件私聊白名单。
+
+        AstrBot 的 WhitelistCheckStage 早于插件 handler 执行，并且只检查
+        unified_msg_origin/群号；当平台白名单启用时，仅填写 QQ 号或在
+        本插件 private_chat_users 中填写用户，都可能被核心阶段提前拦截。
+        这里在私聊消息下收集 sender/session/UMO 分段候选 ID，命中本插件
+        private_chat_users 时直接放行核心白名单阶段。
+        """
+        try:
+            from astrbot.core.pipeline.whitelist_check.stage import WhitelistCheckStage
+        except Exception as exc:
+            logger.debug(f"安装私聊白名单核心阶段补丁失败: {exc}")
+            return
+
+        if getattr(
+            WhitelistCheckStage, "_permission_controller_patch_installed", False
+        ):
+            return
+
+        original_process = WhitelistCheckStage.process
+        WhitelistCheckStage._permission_controller_original_process = original_process
+
+        async def patched_process(stage_self, event):
+            try:
+                if event.get_message_type() == MessageType.FRIEND_MESSAGE:
+                    users = cls._load_runtime_private_chat_users()
+                    if (
+                        users
+                        and cls._private_sender_candidates_from_event(event) & users
+                    ):
+                        return
+            except Exception as exc:
+                logger.debug(f"私聊白名单核心阶段补丁判断失败: {exc}")
+            result = original_process(stage_self, event)
+            return await result
+
+        WhitelistCheckStage.process = patched_process
+        WhitelistCheckStage._permission_controller_patch_installed = True
+
+    @staticmethod
+    def _private_sender_candidates_from_event(event: AstrMessageEvent) -> set[str]:
+        """从事件对象提取私聊用户候选 ID，供插件逻辑和核心阶段补丁复用。"""
+        candidates = set()
+        for getter_name in ("get_sender_id", "get_session_id"):
+            try:
+                getter = getattr(event, getter_name, None)
+                if callable(getter):
+                    value = getter()
+                    if value is not None and str(value).strip():
+                        candidates.add(str(value).strip())
+            except Exception:
+                pass
+
+        for attr_path in (
+            ("message_obj", "sender", "user_id"),
+            ("message_obj", "session_id"),
+            ("session", "session_id"),
+        ):
+            try:
+                obj = event
+                for attr in attr_path:
+                    obj = getattr(obj, attr)
+                if obj is not None and str(obj).strip():
+                    candidates.add(str(obj).strip())
+            except Exception:
+                pass
+
+        try:
+            umo = str(event.unified_msg_origin or "").strip()
+            if umo:
+                candidates.add(umo)
+                for sep in (":", "!"):
+                    if sep in umo:
+                        for part in umo.split(sep):
+                            part = part.strip()
+                            if part:
+                                candidates.add(part)
+        except Exception:
+            pass
+        return {x for x in candidates if x}
 
     @classmethod
     def _install_admin_wake_bypass_patch(cls):
@@ -357,41 +465,7 @@ class GroupUserWhitelistPlugin(Star):
 
     def _private_sender_candidates(self, event: AstrMessageEvent) -> set[str]:
         """私聊 ID 兼容：QQ号、sender.user_id、session_id、unified_msg_origin 分段都参与匹配。"""
-        candidates = set()
-        getters = [
-            getattr(event, "get_sender_id", None),
-            getattr(event, "get_session_id", None),
-        ]
-        for getter in getters:
-            if callable(getter):
-                try:
-                    value = getter()
-                    if value is not None and str(value).strip():
-                        candidates.add(str(value).strip())
-                except Exception:
-                    pass
-
-        for attr_path in (
-            ("message_obj", "sender", "user_id"),
-            ("message_obj", "session_id"),
-            ("session", "session_id"),
-        ):
-            try:
-                obj = event
-                for attr in attr_path:
-                    obj = getattr(obj, attr)
-                if obj is not None and str(obj).strip():
-                    candidates.add(str(obj).strip())
-            except Exception:
-                pass
-
-        try:
-            candidates.update(
-                self._extract_tail_ids_from_unified_origin(event.unified_msg_origin)
-            )
-        except Exception:
-            pass
-        return {x for x in candidates if x}
+        return self._private_sender_candidates_from_event(event)
 
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE, priority=maxsize)
     async def check_group_user_whitelist(self, event: AstrMessageEvent):

@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/License-AGPLv3-blue)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-green)
 ![AstrBot](https://img.shields.io/badge/AstrBot-Plugin-purple)
-![Version](https://img.shields.io/badge/Version-v1.7.4-orange)
+![Version](https://img.shields.io/badge/Version-v1.7.5-orange)
 ![Author](https://img.shields.io/badge/Author-local-lightgrey)
 
 ---
@@ -135,6 +135,8 @@
 ---
 
 ## 更新记录
+
+v1.7.5：进一步修复私聊白名单；给 AstrBot 核心白名单阶段加入运行时兼容补丁，使其识别本插件 private_chat_users，避免只匹配 unified_msg_origin 导致纯 QQ 白名单无效。
 
 v1.7.4：修复私聊白名单用户不生效；现在会把 private_chat_users 同步到 AstrBot 平台 id_whitelist，避免核心白名单提前拦截。
 
