@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/License-AGPLv3-blue)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-green)
 ![AstrBot](https://img.shields.io/badge/AstrBot-Plugin-purple)
-![Version](https://img.shields.io/badge/Version-v1.7.6-orange)
+![Version](https://img.shields.io/badge/Version-v1.7.7-orange)
 ![Author](https://img.shields.io/badge/Author-local-lightgrey)
 
 ---
@@ -32,6 +32,38 @@
 ✨ 支持群聊用户黑名单  
 ✨ 支持 AstrBot 管理员绕过限制  
 ✨ 支持将群聊放行列表同步到 AstrBot 平台白名单  
+
+---
+
+## 安装方式
+
+推荐直接下载 Release 中的安装包：
+
+- `astrbot_plugin_permission_controller-v1.7.7.zip`
+
+在 AstrBot 插件管理页面选择从本地 ZIP 安装，或按 AstrBot 当前版本支持的插件安装方式导入该压缩包。
+
+GitHub Release 下载地址：
+
+https://github.com/xiaokangzaina/astrbot_plugin_permission_controller/releases/tag/v1.7.7
+
+---
+
+## Web 面板
+
+v1.7.7 起新增前端 Web 设置面板。
+
+你可以在 AstrBot 插件管理页面打开本插件设置页，直接维护：
+
+- 管理员绕过限制
+- 管理员绕过唤醒词
+- 私聊白名单用户
+- 群聊调用权限规则
+- 放行权限 QQ 列表
+- 放行权限 QQ 群聊列表
+- 群聊禁止调用黑名单
+
+保存配置后，部分运行时拦截规则建议重载插件或重启 AstrBot 后完全生效。
 
 ---
 
@@ -135,6 +167,8 @@
 ---
 
 ## 更新记录
+
+v1.7.7：新增类似 astrbot_plugin_qqadmin 的前端 Web 设置面板，支持直接在插件页面管理权限控制器配置；Release 提供可直接下载安装的 ZIP 包。
 
 v1.7.6：平台白名单改为双向同步；从插件 private_chat_users/allowed_groups 删除的 ID，会从平台 id_whitelist 中同步移除，同时保留非本插件同步的手动平台白名单。
 
