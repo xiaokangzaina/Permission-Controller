@@ -66,9 +66,20 @@ class PermissionControllerPageService:
     def _save_config(self, updated: dict[str, Any]) -> None:
         for key, value in updated.items():
             self._cfg_set(key, value)
-        if hasattr(self.config, "save_config"):
-            self.config.save_config()
-            return
+
+        # AstrBot 不同版本传入的插件配置对象不完全一致。
+        # 为避免 Web 保存时因 save_config 签名/实现差异抛出 500，
+        # 这里固定写入插件配置文件，并尽量同步运行时配置对象。
+        try:
+            if hasattr(self.config, "save_config"):
+                try:
+                    self.config.save_config(updated)
+                except TypeError:
+                    self.config.save_config()
+                return
+        except Exception as exc:
+            logger.warning("调用 AstrBot 配置保存接口失败，改为直接写入插件配置文件: %s", exc)
+
         self._write_config_file(updated)
 
     def _write_config_file(self, updated: dict[str, Any]) -> None:

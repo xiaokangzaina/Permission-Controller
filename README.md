@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/License-AGPLv3-blue)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-green)
 ![AstrBot](https://img.shields.io/badge/AstrBot-Plugin-purple)
-![Version](https://img.shields.io/badge/Version-v1.7.7-orange)
+![Version](https://img.shields.io/badge/Version-v1.7.8-orange)
 ![Author](https://img.shields.io/badge/Author-local-lightgrey)
 
 ---
@@ -39,13 +39,13 @@
 
 推荐直接下载 Release 中的安装包：
 
-- `astrbot_plugin_permission_controller-v1.7.7.zip`
+- `astrbot_plugin_permission_controller-v1.7.8.zip`
 
 在 AstrBot 插件管理页面选择从本地 ZIP 安装，或按 AstrBot 当前版本支持的插件安装方式导入该压缩包。
 
 GitHub Release 下载地址：
 
-https://github.com/xiaokangzaina/astrbot_plugin_permission_controller/releases/tag/v1.7.7
+https://github.com/xiaokangzaina/astrbot_plugin_permission_controller/releases/tag/v1.7.8
 
 ---
 
@@ -167,6 +167,8 @@ v1.7.7 起新增前端 Web 设置面板。
 ---
 
 ## 更新记录
+
+v1.7.8：修复 Web 面板保存配置时可能返回 500 的问题；兼容不同 AstrBot 版本的插件配置保存接口。
 
 v1.7.7：新增类似 astrbot_plugin_qqadmin 的前端 Web 设置面板，支持直接在插件页面管理权限控制器配置；Release 提供可直接下载安装的 ZIP 包。
 
