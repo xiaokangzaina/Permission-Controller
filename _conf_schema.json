@@ -1,50 +1,64 @@
 {
-  "admin_bypass": {
-    "description": "管理员绕过限制",
-    "hint": "开启后，AstrBot 平台配置 admins_id 中的管理员不会被本插件拦截。",
-    "type": "bool",
-    "default": true
+  "private_chat_settings": {
+    "description": "私聊类",
+    "hint": "管理好友私聊权限。私聊白名单只允许指定 QQ 私聊机器人，不会授予管理员权限。",
+    "type": "object",
+    "items": {
+      "private_chat_users": {
+        "description": "私聊白名单用户",
+        "hint": "填写 QQ 号。列表中的用户可以在好友私聊中使用机器人。",
+        "type": "list",
+        "default": []
+      },
+      "admin_bypass": {
+        "description": "管理员绕过限制",
+        "hint": "开启后，AstrBot 平台管理员不会被本插件拦截。该开关同时影响私聊和群聊。",
+        "type": "bool",
+        "default": true
+      },
+      "admin_wake_bypass": {
+        "description": "管理员绕过唤醒词",
+        "hint": "开启后，AstrBot 平台管理员在群聊或私聊发送普通消息也能唤醒机器人，无需唤醒词或 @。",
+        "type": "bool",
+        "default": false
+      }
+    }
   },
-  "admin_wake_bypass": {
-    "description": "管理员绕过唤醒词",
-    "hint": "开启后，AstrBot 平台配置 admins_id 中的管理员在群聊/私聊发送普通消息也会唤醒机器人，无需使用唤醒词或 @ 机器人。",
-    "type": "bool",
-    "default": false
-  },
-  "private_chat_users": {
-    "description": "私聊白名单用户",
-    "hint": "填写 QQ 号。列表中的用户可以在私聊中使用机器人；管理员自动放行。",
-    "type": "list",
-    "default": []
-  },
-  "enable_group_rules": {
-    "description": "启用群聊调用权限规则",
-    "hint": "总开关。开启后执行严格群聊权限：只有命中放行权限QQ列表或放行权限QQ群聊列表才允许群聊调用；关闭后不限制任何群聊用户。",
-    "type": "bool",
-    "default": true
-  },
-  "simple_rules": {
-    "description": "放行权限QQ列表",
-    "hint": "格式：用户QQ-群号。例如 3207189240-1012112971 表示该用户可在该群调用机器人。群聊规则开启后，未命中的用户会被拦截。",
-    "type": "list",
-    "default": []
-  },
-  "allowed_groups": {
-    "description": "放行权限QQ群聊列表",
-    "hint": "填写群号。列表中的群聊整体放行；未填写的群不会整体放行。插件启动时会自动同步这些群号到 AstrBot 平台配置的白名单 ID 列表。",
-    "type": "list",
-    "default": []
-  },
-  "enable_group_blacklist": {
-    "description": "启用群聊禁止调用黑名单",
-    "hint": "总开关。开启后，group_blacklist 中配置的 QQ 号会在群聊中被禁止调用机器人；关闭后不启用群聊黑名单。",
-    "type": "bool",
-    "default": true
-  },
-  "group_blacklist": {
-    "description": "群聊禁止调用黑名单",
-    "hint": "填写QQ号。命中的用户在群聊中会被禁止调用机器人；管理员绕过限制开启时，平台 admins_id 中的管理员仍可放行。",
-    "type": "list",
-    "default": []
+  "group_chat_settings": {
+    "description": "群聊类",
+    "hint": "管理群聊调用权限、群整体放行、用户群号组合放行和群聊黑名单。",
+    "type": "object",
+    "items": {
+      "enable_group_rules": {
+        "description": "启用群聊调用权限规则",
+        "hint": "开启后执行严格群聊权限：只有命中放行权限 QQ 列表或放行权限 QQ 群聊列表才允许群聊调用；关闭后不限制任何群聊用户。",
+        "type": "bool",
+        "default": true
+      },
+      "allowed_groups": {
+        "description": "放行权限 QQ 群聊列表",
+        "hint": "填写群号。列表中的群聊整体放行；插件启动时会自动同步这些群号到 AstrBot 平台白名单。",
+        "type": "list",
+        "default": []
+      },
+      "simple_rules": {
+        "description": "放行权限 QQ 列表",
+        "hint": "格式：用户QQ-群号。例如 3207189240-1012112971 表示该用户可在该群调用机器人。",
+        "type": "list",
+        "default": []
+      },
+      "enable_group_blacklist": {
+        "description": "启用群聊禁止调用黑名单",
+        "hint": "开启后，group_blacklist 中配置的 QQ 号会在群聊中被禁止调用机器人。",
+        "type": "bool",
+        "default": true
+      },
+      "group_blacklist": {
+        "description": "群聊禁止调用黑名单",
+        "hint": "填写用户 QQ，不是群号。命中的用户在群聊中会被禁止调用机器人。",
+        "type": "list",
+        "default": []
+      }
+    }
   }
 }

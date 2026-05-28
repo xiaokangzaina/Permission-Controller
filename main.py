@@ -33,7 +33,7 @@ class _AstrBotAfterMessageSentLogFilter(logging.Filter):
     "astrbot_plugin_permission_controller",
     "local",
     "按 用户QQ-群号/群号列表 限制谁能调用模型/机器人",
-    "1.8.1",
+    "1.8.2",
 )
 class GroupUserWhitelistPlugin(Star):
     """AstrBot 权限控制器主类。
@@ -104,13 +104,51 @@ class GroupUserWhitelistPlugin(Star):
                 pass
         cls._after_message_sent_log_filter_installed = True
 
+    _PRIVATE_CONFIG_KEYS = {"private_chat_users", "admin_bypass", "admin_wake_bypass"}
+    _GROUP_CONFIG_KEYS = {
+        "enable_group_rules",
+        "simple_rules",
+        "allowed_groups",
+        "enable_group_blacklist",
+        "group_blacklist",
+    }
+
+    @classmethod
+    def _config_group_for_key(cls, key: str) -> str | None:
+        if key in cls._PRIVATE_CONFIG_KEYS:
+            return "private_chat_settings"
+        if key in cls._GROUP_CONFIG_KEYS:
+            return "group_chat_settings"
+        return None
+
+    @classmethod
+    def _dict_cfg_get(cls, data: dict, key: str, default=None):
+        if not isinstance(data, dict):
+            return default
+        if key in data:
+            return data.get(key, default)
+        group_name = cls._config_group_for_key(key)
+        group = data.get(group_name, {}) if group_name else {}
+        if isinstance(group, dict) and key in group:
+            return group.get(key, default)
+        return default
+
     def _cfg_get(self, key, default=None):
-        """安全读取 AstrBotConfig/dict 配置，读取失败时返回默认值。"""
+        """安全读取配置，兼容旧版平铺配置和新版分组配置。"""
         try:
             if hasattr(self.config, "get"):
-                return self.config.get(key, default)
+                value = self.config.get(key, None)
+                if value is not None:
+                    return value
+                group_name = self._config_group_for_key(key)
+                if group_name:
+                    group = self.config.get(group_name, {})
+                    if isinstance(group, dict) and key in group:
+                        return group.get(key, default)
         except Exception:
             pass
+        if isinstance(self.config, dict):
+            return self._dict_cfg_get(self.config, key, default)
         return default
 
     def _get_bool_config(self, key, default=False):
@@ -142,7 +180,7 @@ class GroupUserWhitelistPlugin(Star):
             if not cfg_path.exists():
                 return set()
             data = json.loads(cfg_path.read_text(encoding="utf-8-sig") or "{}")
-            users = data.get("private_chat_users", [])
+            users = cls._dict_cfg_get(data, "private_chat_users", [])
             if isinstance(users, (str, int)):
                 users = [users]
             if not isinstance(users, list):
@@ -263,7 +301,7 @@ class GroupUserWhitelistPlugin(Star):
                 if cfg_path.exists():
                     raw = cfg_path.read_text(encoding="utf-8-sig")
                     data = json.loads(raw) if raw.strip() else {}
-                    value = data.get("admin_wake_bypass", False)
+                    value = cls._dict_cfg_get(data, "admin_wake_bypass", False)
                     if isinstance(value, bool):
                         return value
                     if isinstance(value, str):
