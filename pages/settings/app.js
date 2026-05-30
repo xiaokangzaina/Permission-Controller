@@ -204,7 +204,7 @@ function renderGroupForm(payload) {
   usersField.innerHTML = `
     <div class="field-label">本群允许用户</div>
     <div class="field-hint">每行一个 QQ 号。保存后会自动写入“用户QQ-群号”规则。</div>
-    <textarea id="allowedUsersInput" rows="8" spellcheck="false" placeholder="例如：\n3207189240"></textarea>
+    <textarea id="allowedUsersInput" rows="8" spellcheck="false" placeholder="每行一个 QQ 号"></textarea>
   `;
   usersField.querySelector("textarea").value = Array.isArray(config.allowed_users)
     ? config.allowed_users.join("\n")

@@ -181,7 +181,7 @@ data/config/astrbot_plugin_permission_controller_config.json
 也可以手动在 `simple_rules` 中填写：
 
 ```text
-3207189240-1012112971
+用户QQ-群号
 ```
 
 ### 禁止某人在任何群聊调用
