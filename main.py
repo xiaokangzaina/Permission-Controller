@@ -26,7 +26,6 @@ class _AstrBotAfterMessageSentLogFilter(logging.Filter):
 
     TARGET_TEXTS = (
         "astrbot - after_message_sent 终止了事件传播。",
-        "Prepare to send -",
     )
 
     def filter(self, record: logging.LogRecord) -> bool:
