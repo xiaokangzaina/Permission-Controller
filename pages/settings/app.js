@@ -7,6 +7,7 @@ const themeMediaQuery =
     ? window.matchMedia("(prefers-color-scheme: dark)")
     : null;
 const THEME_STORAGE_KEY = "permission-controller-theme-mode";
+const GROUP_TOUCH_STORAGE_KEY = "permission-controller-group-touch-times";
 
 let api = null;
 let groups = [];
@@ -32,6 +33,47 @@ function loadThemePreference() {
     if (["light", "dark", "auto"].includes(stored)) return stored;
   } catch {}
   return "auto";
+}
+
+function loadGroupTouchTimes() {
+  try {
+    const raw = window.localStorage.getItem(GROUP_TOUCH_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {}
+  return {};
+}
+
+function saveGroupTouchTimes(times) {
+  try {
+    window.localStorage.setItem(GROUP_TOUCH_STORAGE_KEY, JSON.stringify(times));
+  } catch {}
+}
+
+function touchGroupConfig(groupId) {
+  const target = String(groupId || "").trim();
+  if (!target) return;
+  const times = loadGroupTouchTimes();
+  times[target] = Date.now();
+  saveGroupTouchTimes(times);
+}
+
+function groupTouchTime(group) {
+  const backendTime = Number(group?.config_updated_at || 0);
+  if (backendTime) return backendTime;
+  const times = loadGroupTouchTimes();
+  return Number(times[String(group?.group_id || "")] || 0);
+}
+
+function sortGroupsByRecentConfig(groupList) {
+  return [...groupList].sort((a, b) => {
+    const recentDiff = groupTouchTime(b) - groupTouchTime(a);
+    if (recentDiff) return recentDiff;
+    return String(a.group_name || a.group_id || "").localeCompare(
+      String(b.group_name || b.group_id || ""),
+      "zh-Hans-CN",
+    );
+  });
 }
 
 function saveThemePreference() {
@@ -84,7 +126,7 @@ function normalizeListText(value) {
 
 function renderGroupList() {
   const keyword = String(els.groupSearchInput?.value || "").trim().toLowerCase();
-  const visibleGroups = groups.filter((group) => {
+  const visibleGroups = sortGroupsByRecentConfig(groups).filter((group) => {
     const text = `${group.group_name || ""} ${group.group_id || ""}`.toLowerCase();
     return !keyword || text.includes(keyword);
   });
@@ -121,7 +163,10 @@ function renderGroupList() {
     name.textContent = group.group_name || `群 ${group.group_id}`;
     const meta = document.createElement("span");
     meta.className = "group-meta";
-    meta.textContent = `群号：${group.group_id}`;
+    const touchedAt = groupTouchTime(group);
+    meta.textContent = touchedAt
+      ? `群号：${group.group_id} · 最近配置：${new Date(touchedAt).toLocaleString()}`
+      : `群号：${group.group_id}`;
     body.appendChild(name);
     body.appendChild(meta);
 
@@ -179,21 +224,27 @@ function collectGroupForm() {
 
 async function loadBootstrap() {
   els.groupList.classList.add("empty-state");
-  els.groupList.textContent = "群列表加载中…";
+  els.groupList.textContent = "群列表同步中…";
   els.groupForm.classList.add("empty-state");
   els.groupForm.textContent = "请从左侧选择一个群聊。";
-  const data = await api.safeGet("settings/bootstrap");
-  groups = data.groups || [];
-  renderGroupList();
-  if (groups.length) {
-    await loadGroupConfig(groups[0].group_id);
+  try {
+    await refreshGroups({ silent: true });
+  } catch (err) {
+    const data = await api.safeGet("settings/bootstrap");
+    groups = data.groups || [];
+    renderGroupList();
+    toast("同步群列表失败，已使用缓存配置：" + err.message, "error");
+  }
+  const firstGroup = sortGroupsByRecentConfig(groups)[0];
+  if (firstGroup) {
+    await loadGroupConfig(firstGroup.group_id);
   }
 }
 
-async function refreshGroups() {
+async function refreshGroups(options = {}) {
   groups = await api.safePost("settings/groups/refresh", {});
   renderGroupList();
-  toast("群列表已同步", "success");
+  if (!options.silent) toast("群列表已同步", "success");
 }
 
 async function loadGroupConfig(groupId) {
@@ -216,7 +267,8 @@ async function saveGroupConfig() {
       config: collectGroupForm(),
     });
     renderGroupForm(data);
-    await refreshGroups();
+    touchGroupConfig(groupId);
+    await refreshGroups({ silent: true });
     toast("群配置已保存", "success");
   } catch (err) {
     toast("保存失败：" + err.message, "error");
@@ -236,7 +288,8 @@ async function resetGroupConfig() {
   try {
     const data = await api.safePost("settings/group/reset", { group_id: groupId });
     renderGroupForm(data);
-    await refreshGroups();
+    touchGroupConfig(groupId);
+    await refreshGroups({ silent: true });
     toast("群配置已重置", "success");
   } catch (err) {
     toast("重置失败：" + err.message, "error");

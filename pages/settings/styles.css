@@ -29,6 +29,12 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  width: 100%;
+  min-width: 0;
+}
+
 body {
   margin: 0;
   font-family: "Segoe UI", system-ui, -apple-system, "Microsoft YaHei", sans-serif;
@@ -39,12 +45,15 @@ body {
 }
 
 .page-shell {
-  max-width: 880px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   padding: 24px 18px 96px;
 }
 
 .workspace-shell {
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -260,10 +269,12 @@ button:disabled {
 /* ---------- 群聊选择配置 ---------- */
 
 .page-shell {
-  max-width: 1180px;
+  max-width: none;
 }
 
 .group-workspace {
+  width: 100%;
+  min-width: 0;
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 18px;
@@ -360,6 +371,7 @@ button:disabled {
 }
 
 .group-config-panel {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;

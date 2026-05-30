@@ -19,11 +19,7 @@ PLUGIN_NAME = "astrbot_plugin_permission_controller"
 
 
 class PermissionWebController:
-    """权限控制器配置页的 Web API 控制器。
-
-    架构与 qqadmin 的 QQAdminWebController 对齐：用 context.register_web_api
-    暴露接口，前端页面（pages/settings）通过 window.AstrBotPluginPage 桥接调用。
-    """
+    """权限控制器配置页的 Web API 控制器。"""
 
     def __init__(self, context: Context, plugin: Any):
         self.context = context

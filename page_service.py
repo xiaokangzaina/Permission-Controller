@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any
 
 from astrbot.api import logger
 
 PLUGIN_DIR = Path(__file__).resolve().parent
+GROUP_TOUCH_FILE = PLUGIN_DIR / "data" / "group_config_touch_times.json"
 
 # schema 顶层分组键 -> 其 items
 # 配置在 _conf_schema.json 中是两层结构：
@@ -43,11 +45,7 @@ def _normalize_list(value: Any) -> list[str]:
 
 
 class PermissionPageService:
-    """权限控制器配置页服务。
-
-    与 qqadmin 的 page_service 角色一致，但 permission_controller 是
-    全局单页配置（没有"按群"维度），因此只提供 bootstrap / save / reset 三类操作。
-    """
+    """权限控制器配置页服务。"""
 
     def __init__(self, plugin: Any):
         # plugin 为 GroupUserWhitelistPlugin 实例，持有 self.config (AstrBotConfig)
@@ -80,7 +78,7 @@ class PermissionPageService:
                 logger.debug("[PermissionController] 获取群列表失败: %s", exc)
         for item in self._build_configured_groups(self._read_current_config()):
             groups.setdefault(item["group_id"], item)
-        return sorted(groups.values(), key=lambda item: item.get("group_name") or item["group_id"])
+        return self._sort_groups_by_recent_config(groups.values())
 
     def get_group_config(self, group_id: str) -> dict[str, Any]:
         """把全局配置映射成单群配置页需要的数据。"""
@@ -135,6 +133,7 @@ class PermissionPageService:
             "allowed_groups": sorted(allowed_groups),
             "simple_rules": sorted(set(simple_rules)),
         })
+        self._touch_group_config(group_id)
         return self.get_group_config(group_id)
 
     def reset_group_config(self, group_id: str) -> dict[str, Any]:
@@ -216,6 +215,7 @@ class PermissionPageService:
 
     def _build_group_info(self, group_id: str, source: str = "fallback") -> dict[str, Any]:
         group_id = str(group_id).strip()
+        touched_at = self._group_config_touch_times().get(group_id, 0)
         return {
             "group_id": group_id,
             "group_name": f"群 {group_id}",
@@ -223,6 +223,7 @@ class PermissionPageService:
             "member_count": 0,
             "max_member_count": 0,
             "source": source,
+            "config_updated_at": touched_at,
         }
 
     def _normalize_group_item(self, item: dict[str, Any]) -> dict[str, Any]:
@@ -234,9 +235,54 @@ class PermissionPageService:
                 "group_name": group_name,
                 "member_count": self._safe_int(item.get("member_count"), 0),
                 "max_member_count": self._safe_int(item.get("max_member_count"), 0),
+                "config_updated_at": self._group_config_touch_times().get(group_id, 0),
             }
         )
         return normalized
+
+    def _sort_groups_by_recent_config(self, group_list: Any) -> list[dict[str, Any]]:
+        touch_times = self._group_config_touch_times()
+        enriched = []
+        for item in group_list:
+            group = dict(item)
+            group_id = str(group.get("group_id", "")).strip()
+            group["config_updated_at"] = self._safe_int(touch_times.get(group_id), 0)
+            enriched.append(group)
+        return sorted(
+            enriched,
+            key=lambda item: (
+                -self._safe_int(item.get("config_updated_at"), 0),
+                str(item.get("group_name") or item.get("group_id") or ""),
+            ),
+        )
+
+    def _group_config_touch_times(self) -> dict[str, int]:
+        try:
+            data = json.loads(GROUP_TOUCH_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return {
+            str(group_id): self._safe_int(timestamp, 0)
+            for group_id, timestamp in data.items()
+            if str(group_id).strip()
+        }
+
+    def _touch_group_config(self, group_id: str) -> None:
+        group_id = str(group_id or "").strip()
+        if not group_id:
+            return
+        touch_times = self._group_config_touch_times()
+        touch_times[group_id] = int(time.time() * 1000)
+        try:
+            GROUP_TOUCH_FILE.parent.mkdir(parents=True, exist_ok=True)
+            GROUP_TOUCH_FILE.write_text(
+                json.dumps(touch_times, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as exc:
+            logger.warning("[PermissionController] 记录群配置更新时间失败: %s", exc)
 
     @staticmethod
     def _safe_int(value: Any, default: int = 0) -> int:
