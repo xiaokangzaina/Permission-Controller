@@ -1,4 +1,4 @@
-![权限控制器](https://raw.githubusercontent.com/xiaokangzaina/astrbot_plugin_permission_controller/main/plugin-avatar-v1.6.0.png)
+![权限控制器](https://raw.githubusercontent.com/xiaokangzaina/astrbot_plugin_permission_controller/main/logo.png)
 
 # 权限控制器
 
