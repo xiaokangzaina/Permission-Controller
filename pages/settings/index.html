@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>权限控制器配置</title>
+    <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+    <div class="page-shell">
+        <section class="workspace-shell">
+            <header class="page-head">
+                <div class="page-head-text">
+                    <h2 class="page-title">权限控制器</h2>
+                    <p class="page-subtitle">像 QQAdmin 一样，点击群聊头像后配置该群权限</p>
+                </div>
+                <div class="page-head-actions">
+                    <button class="ghost-button" id="toggleThemeBtn">主题：自动</button>
+                    <button class="ghost-button" id="refreshGroupsBtn">同步群列表</button>
+                </div>
+            </header>
+
+            <main class="group-workspace">
+                <aside class="group-sidebar">
+                    <input id="groupSearchInput" class="group-search" type="text" placeholder="搜索群名或群号" />
+                    <div id="groupList" class="group-list empty-state">群列表加载中…</div>
+                </aside>
+
+                <section class="group-config-panel">
+                    <div class="group-config-head">
+                        <div>
+                            <h3 id="currentGroupTitle">请选择群聊</h3>
+                            <p id="currentGroupMeta">点击左侧群聊头像即可配置</p>
+                        </div>
+                    </div>
+                    <div id="groupForm" class="form-stack empty-state">请从左侧选择一个群聊。</div>
+                    <div class="sticky-actions">
+                        <button class="ghost-button" id="resetGroupBtn">清空该群配置</button>
+                        <button class="primary-button" id="saveGroupBtn">保存该群配置</button>
+                    </div>
+                </section>
+            </main>
+        </section>
+    </div>
+
+    <div class="toast-layer" id="toastLayer"></div>
+    <script type="module" src="./app.js"></script>
+</body>
+</html>

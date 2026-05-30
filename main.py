@@ -14,6 +14,11 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, register
 from astrbot.core.platform.message_type import MessageType
 
+try:
+    from .web import PermissionWebController
+except Exception:  # pragma: no cover - web 模块缺失时不影响核心功能
+    PermissionWebController = None
+
 logger = logging.getLogger(__name__)
 
 class _AstrBotAfterMessageSentLogFilter(logging.Filter):
@@ -81,6 +86,39 @@ class GroupUserWhitelistPlugin(Star):
             self.admin_bypass,
         )
 
+        self._register_web_page()
+
+
+    def _register_web_page(self):
+        """注册可视化配置页（Web 前端）。失败不影响核心拦截功能。"""
+        if PermissionWebController is None:
+            return
+        try:
+            self.web = PermissionWebController(self.context, self)
+            self.web.register_routes()
+            logger.info("[PermissionController] 配置页 Web API 已注册")
+        except Exception as exc:
+            logger.warning("[PermissionController] 配置页注册失败: %s", exc)
+
+    def reload_runtime_config(self):
+        """供配置页保存后调用：重新读取配置并刷新运行时缓存。"""
+        self.rules = self._load_rules()
+        self.admin_bypass = self._get_bool_config("admin_bypass", True)
+        self.admin_wake_bypass = self._get_bool_config("admin_wake_bypass", False)
+        self.enable_group_rules = self._get_bool_config("enable_group_rules", True)
+        self.enable_group_blacklist = self._get_bool_config(
+            "enable_group_blacklist", True
+        )
+        self.group_blacklist = self._normalize_ids(self._cfg_get("group_blacklist", []))
+        self.private_chat_users = self._normalize_ids(
+            self._cfg_get("private_chat_users", [])
+        )
+        self.allowed_groups = self._normalize_ids(self._cfg_get("allowed_groups", []))
+        try:
+            self._sync_plugin_allowlist_to_platform_whitelist()
+        except Exception as exc:
+            logger.warning("[PermissionController] 同步平台白名单失败: %s", exc)
+        logger.info("[PermissionController] 运行时配置已重载")
 
     @classmethod
     def _install_after_message_sent_log_filter(cls):
